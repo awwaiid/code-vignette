@@ -41,6 +41,10 @@ struct Args {
     /// Window size for up_to_n_lines strategy
     #[arg(long, default_value = "10")]
     window_size: usize,
+
+    /// Print verbose progress information
+    #[arg(short, long)]
+    verbose: bool,
 }
 
 fn confirm_chomp() -> Result<bool> {
@@ -112,10 +116,10 @@ fn run_chomp(args: Args) -> Result<()> {
     }
 
     // Set up command runner
-    let command_runner = CommandRunner::new(args.command.clone());
+    let command_runner = CommandRunner::with_verbose(args.command.clone(), args.verbose);
 
     // Create chomper
-    let mut chomper = Chomper::new(file_manager, command_runner);
+    let mut chomper = Chomper::with_verbose(file_manager, command_runner, args.verbose);
 
     // Establish baseline
     println!("🎯 Establishing baseline with command: '{}'", args.command);
