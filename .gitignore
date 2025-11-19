@@ -1,0 +1,16 @@
+# Rust
+target/
+Cargo.lock
+
+# Test directories
+test-*/
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
