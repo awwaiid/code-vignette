@@ -10,10 +10,10 @@ fn main() {
 
     let mut game = Game::new();
 
+    println!("\nPlayer hand: {:?}", game.player_hand().value());
+    println!("Dealer showing: {:?}", game.dealer_hand().cards()[0]);
 
-
-
-
+    // Simple AI: hit if below 17
     while game.player_hand().value() < 17 {
         game.player_hit();
         println!("Player hits! New value: {}", game.player_hand().value());

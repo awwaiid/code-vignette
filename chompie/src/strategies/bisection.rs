@@ -15,23 +15,31 @@ impl Strategy for BisectionStrategy {
         let mut ranges = Vec::new();
 
         for (path, state) in files {
-            let total_lines = state.total_lines();
-            if total_lines == 0 {
+            let non_blank_indices = state.non_blank_line_indices();
+            if non_blank_indices.is_empty() {
                 continue;
             }
 
-            // Generate bisection ranges: halves, then quarters, then eighths, etc.
-            let mut range_size = total_lines / 2;
+            // Generate bisection ranges on non-blank lines
+            // We bisect the count of non-blank lines, not the indices
+            let count = non_blank_indices.len();
+            let mut range_size = count / 2;
+
             while range_size > 0 {
-                let mut start = 0;
-                while start < total_lines {
-                    let end = (start + range_size).min(total_lines);
+                let mut start_idx = 0;
+                while start_idx < count {
+                    let end_idx = (start_idx + range_size).min(count);
+
+                    // Convert from count-based indices to actual line numbers
+                    let start_line = non_blank_indices[start_idx];
+                    let end_line = non_blank_indices[end_idx - 1] + 1;
+
                     ranges.push(ChompRange {
                         file: path.clone(),
-                        start_line: start,
-                        end_line: end,
+                        start_line,
+                        end_line,
                     });
-                    start = end;
+                    start_idx = end_idx;
                 }
                 range_size /= 2;
             }

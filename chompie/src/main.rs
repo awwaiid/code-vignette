@@ -97,9 +97,9 @@ fn run_chomp(args: Args) -> Result<()> {
         .context("Failed to scan directory")?;
 
     let file_count = file_manager.files().len();
-    let initial_lines = file_manager.total_lines();
+    let initial_lines = file_manager.non_blank_lines();
 
-    println!("Found {} files with {} total lines\n", file_count, initial_lines);
+    println!("Found {} files with {} lines\n", file_count, initial_lines);
 
     if file_count == 0 {
         println!("No files to chomp!");

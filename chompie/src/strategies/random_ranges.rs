@@ -46,25 +46,31 @@ impl Strategy for RandomRangesStrategy {
             // Pick a random file
             let file_index = (lcg_next(&mut rng_state) as usize) % files.len();
             if let Some((path, state)) = files.iter().nth(file_index) {
-                let total_lines = state.total_lines();
-                if total_lines < 2 {
+                let non_blank_indices = state.non_blank_line_indices();
+                if non_blank_indices.len() < 2 {
                     continue;
                 }
 
-                // Pick random start line
-                let start = (lcg_next(&mut rng_state) as usize) % total_lines;
+                let count = non_blank_indices.len();
 
-                // Pick random range size (1 to 25% of file, at least 1)
-                let max_size = (total_lines / 4).max(1);
+                // Pick random start index (in the non-blank list)
+                let start_idx = (lcg_next(&mut rng_state) as usize) % count;
+
+                // Pick random range size (1 to 25% of non-blank lines, at least 1)
+                let max_size = (count / 4).max(1);
                 let size = ((lcg_next(&mut rng_state) as usize) % max_size) + 1;
 
-                let end = (start + size).min(total_lines);
+                let end_idx = (start_idx + size).min(count);
 
-                if end > start {
+                if end_idx > start_idx {
+                    // Convert to actual line numbers
+                    let start_line = non_blank_indices[start_idx];
+                    let end_line = non_blank_indices[end_idx - 1] + 1;
+
                     ranges.push(ChompRange {
                         file: path.clone(),
-                        start_line: start,
-                        end_line: end,
+                        start_line,
+                        end_line,
                     });
                 }
             }

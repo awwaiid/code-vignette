@@ -56,6 +56,13 @@ impl FileState {
     pub fn non_blank_lines(&self) -> usize {
         self.original_lines.len() - self.blanked_lines.len()
     }
+
+    /// Get list of line indices that are not currently blanked
+    pub fn non_blank_line_indices(&self) -> Vec<usize> {
+        (0..self.original_lines.len())
+            .filter(|i| !self.blanked_lines.contains(i))
+            .collect()
+    }
 }
 
 pub struct FileManager {

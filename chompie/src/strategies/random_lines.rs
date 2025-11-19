@@ -32,9 +32,9 @@ impl Strategy for RandomLinesStrategy {
     fn generate_ranges(&self, files: &HashMap<PathBuf, FileState>) -> Vec<ChompRange> {
         let mut ranges = Vec::new();
 
-        // Count total lines across all files
-        let total_lines: usize = files.values().map(|f| f.total_lines()).sum();
-        if total_lines == 0 {
+        // Count non-blank lines across all files
+        let total_non_blank: usize = files.values().map(|f| f.non_blank_lines()).sum();
+        if total_non_blank == 0 {
             return ranges;
         }
 
@@ -45,19 +45,22 @@ impl Strategy for RandomLinesStrategy {
             (*state / 65536) % 32768
         };
 
-        // Generate random single-line ranges
-        let attempts = self.max_attempts.min(total_lines);
+        // Generate random single-line ranges from non-blank lines only
+        let attempts = self.max_attempts.min(total_non_blank);
         let mut tried_lines = std::collections::HashSet::new();
 
         for _ in 0..attempts {
-            // Pick a random file (weighted by line count)
+            // Pick a random file (weighted by non-blank line count)
             let file_index = (lcg_next(&mut rng_state) as usize) % files.len();
             if let Some((path, state)) = files.iter().nth(file_index) {
-                if state.total_lines() == 0 {
+                let non_blank_indices = state.non_blank_line_indices();
+                if non_blank_indices.is_empty() {
                     continue;
                 }
 
-                let line = (lcg_next(&mut rng_state) as usize) % state.total_lines();
+                // Pick a random non-blank line
+                let idx = (lcg_next(&mut rng_state) as usize) % non_blank_indices.len();
+                let line = non_blank_indices[idx];
                 let key = (path.clone(), line);
 
                 // Avoid trying the same line twice
