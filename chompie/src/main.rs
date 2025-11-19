@@ -10,7 +10,7 @@ use chomper::Chomper;
 use clap::Parser;
 use command_runner::CommandRunner;
 use file_manager::FileManager;
-use strategies::{BisectionStrategy, RandomLinesStrategy, RandomRangesStrategy};
+use strategies::{BisectionStrategy, RandomLinesStrategy, RandomRangesStrategy, SlidingWindowStrategy};
 use strategy::Strategy;
 use std::io::{self, Write};
 
@@ -30,13 +30,17 @@ struct Args {
     #[arg(short = 'y', long)]
     yes: bool,
 
-    /// Strategies to use (comma-separated: bisection,random_lines,random_ranges)
+    /// Strategies to use (comma-separated: bisection,random_lines,random_ranges,sliding_window)
     #[arg(long, default_value = "bisection,random_lines,random_ranges")]
     strategies: String,
 
     /// Maximum attempts for random strategies
     #[arg(long, default_value = "100")]
     random_attempts: usize,
+
+    /// Window size for sliding_window strategy
+    #[arg(long, default_value = "1")]
+    window_size: usize,
 }
 
 fn confirm_chomp() -> Result<bool> {
@@ -51,7 +55,7 @@ fn confirm_chomp() -> Result<bool> {
     Ok(input.trim().eq_ignore_ascii_case("y"))
 }
 
-fn parse_strategies(strategies_str: &str, random_attempts: usize) -> Result<Vec<Box<dyn Strategy>>> {
+fn parse_strategies(strategies_str: &str, random_attempts: usize, window_size: usize) -> Result<Vec<Box<dyn Strategy>>> {
     let mut strategies: Vec<Box<dyn Strategy>> = Vec::new();
 
     for strategy_name in strategies_str.split(',') {
@@ -60,6 +64,7 @@ fn parse_strategies(strategies_str: &str, random_attempts: usize) -> Result<Vec<
             "bisection" => strategies.push(Box::new(BisectionStrategy)),
             "random_lines" => strategies.push(Box::new(RandomLinesStrategy::new(random_attempts))),
             "random_ranges" => strategies.push(Box::new(RandomRangesStrategy::new(random_attempts))),
+            "sliding_window" => strategies.push(Box::new(SlidingWindowStrategy::new(window_size))),
             _ => anyhow::bail!("Unknown strategy: {}", strategy_name),
         }
     }
@@ -83,7 +88,7 @@ fn run_chomp(args: Args) -> Result<()> {
     println!("🍴 Starting chomp process...\n");
 
     // Parse strategies
-    let strategies = parse_strategies(&args.strategies, args.random_attempts)?;
+    let strategies = parse_strategies(&args.strategies, args.random_attempts, args.window_size)?;
     println!("📋 Using {} strategies: {}",
         strategies.len(),
         strategies.iter().map(|s| s.name()).collect::<Vec<_>>().join(", ")
