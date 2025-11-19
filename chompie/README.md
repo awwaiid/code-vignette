@@ -6,14 +6,22 @@ Chompie is a code minimization tool that systematically reduces your codebase to
 
 ## 🚀 How It Works
 
-Chompie uses a bisection algorithm to systematically blank out lines of code:
+Chompie uses multiple strategies to systematically blank out lines of code:
 
 1. **Establish Baseline**: Runs your command once to capture the expected output
-2. **Generate Ranges**: Creates bisection ranges across all files
-3. **Systematic Chomping**: Tries blanking each range, keeping changes that maintain identical output
-4. **Progress Tracking**: Shows real-time progress and statistics
+2. **Apply Strategies**: Tries different chomping strategies (bisection, random lines, random ranges)
+3. **Meta-Strategy**: Rotates through all strategies until no more progress
+4. **Systematic Chomping**: Tries blanking ranges, keeping changes that maintain identical output
 
 The algorithm blanks lines instead of deleting them to preserve line numbers, which is crucial for maintaining stack traces and error messages.
+
+### Chomping Strategies
+
+- **Bisection**: Systematically tries removing halves, quarters, eighths, etc.
+- **Random Lines**: Randomly tries removing individual lines
+- **Random Ranges**: Tries removing random ranges of varying sizes (1-25% of file)
+
+The meta-strategy orchestrator rotates through all strategies until a full round produces zero successful chomps, ensuring maximum code reduction.
 
 ## 📦 Installation
 
@@ -51,6 +59,11 @@ chompie -d src "cargo test"
 # Skip confirmation (DANGEROUS!)
 chompie -y "npm test"
 
+# Use specific strategies
+chompie --strategies bisection "cargo test"
+chompie --strategies random_lines --random-attempts 200 "cargo test"
+chompie --strategies bisection,random_lines,random_ranges "cargo test"
+
 # Different commands
 chompie "python -m pytest tests/test_feature.py"
 chompie "go test ./..."
@@ -61,9 +74,13 @@ chompie "cargo check && cargo test items"
 
 ```
 Options:
-  -d, --directory <DIRECTORY>  Directory to chomp (defaults to current directory)
-  -y, --yes                    Skip confirmation prompt (DANGEROUS!)
-  -h, --help                   Print help
+  -d, --directory <DIRECTORY>         Directory to chomp (defaults to current directory)
+  -y, --yes                          Skip confirmation prompt (DANGEROUS!)
+  --strategies <STRATEGIES>          Strategies to use (comma-separated)
+                                      [default: bisection,random_lines,random_ranges]
+                                      Options: bisection, random_lines, random_ranges
+  --random-attempts <NUM>            Max attempts for random strategies [default: 100]
+  -h, --help                         Print help
 ```
 
 ## ⚠️ Important Warnings
@@ -94,28 +111,46 @@ git diff
 ```
 🍴 Starting chomp process...
 
+📋 Using 3 strategies: bisection, random_lines, random_ranges
 📁 Scanning directory: src
 Found 5 files with 434 total lines
 
 🎯 Establishing baseline with command: 'cargo test --quiet'
 Baseline established:
   Exit code: 0
-  Stdout length: 131 chars
+  Stdout length: 114 chars
   Stderr length: 0 chars
 
-Generated 751 chomp ranges
+🍽️  Starting multi-strategy chomping...
 
-🍽️  Starting to chomp...
+--- Round 1 ---
+Trying strategy: bisection
+  Successful chomps: 1 | Current lines: 430
+Trying strategy: random_lines
+  Successful chomps: 0 | Current lines: 430
+Trying strategy: random_ranges
+  Successful chomps: 0 | Current lines: 430
+Round 1 complete: 1 successful chomps
 
-Chomps: 750/751 (99.9%) | Successful: 145 | Time: 13s
+--- Round 2 ---
+Trying strategy: bisection
+  Successful chomps: 0 | Current lines: 430
+Trying strategy: random_lines
+  Successful chomps: 0 | Current lines: 430
+Trying strategy: random_ranges
+  Successful chomps: 0 | Current lines: 430
+Round 2 complete: 0 successful chomps
 
-=== Chomping Complete ===
+✅ No more progress possible. Chomping complete!
+
+=== Final Results ===
 Initial lines: 434
-Final lines: 289
-Reduction: 33.4%
-Total chomps: 751
-Successful chomps: 145
-Time elapsed: 13s
+Final lines: 430
+Reduction: 0.9%
+Total successful chomps: 1
+Total chomps tested: 10
+Rounds: 2
+Time elapsed: 3s
 
 ✅ Chomping complete!
 ```
