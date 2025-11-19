@@ -16,14 +16,23 @@ impl RunResult {
 
 pub struct CommandRunner {
     command: String,
+    verbose: bool,
 }
 
 impl CommandRunner {
     pub fn new(command: String) -> Self {
-        CommandRunner { command }
+        CommandRunner { command, verbose: false }
+    }
+
+    pub fn with_verbose(command: String, verbose: bool) -> Self {
+        CommandRunner { command, verbose }
     }
 
     pub fn run(&self) -> Result<RunResult> {
+        if self.verbose {
+            println!("      🔧 Running command: {}", self.command);
+        }
+
         let output = if cfg!(target_os = "windows") {
             Command::new("cmd")
                 .args(["/C", &self.command])
@@ -35,11 +44,35 @@ impl CommandRunner {
                 .output()?
         };
 
-        Ok(RunResult {
+        let result = RunResult {
             stdout: String::from_utf8_lossy(&output.stdout).to_string(),
             stderr: String::from_utf8_lossy(&output.stderr).to_string(),
             exit_code: output.status.code().unwrap_or(-1),
-        })
+        };
+
+        if self.verbose {
+            println!("      ✓ Exit code: {}", result.exit_code);
+            if !result.stdout.is_empty() {
+                println!("      📤 Stdout ({} bytes):", result.stdout.len());
+                for line in result.stdout.lines().take(10) {
+                    println!("         {}", line);
+                }
+                if result.stdout.lines().count() > 10 {
+                    println!("         ... ({} more lines)", result.stdout.lines().count() - 10);
+                }
+            }
+            if !result.stderr.is_empty() {
+                println!("      📤 Stderr ({} bytes):", result.stderr.len());
+                for line in result.stderr.lines().take(10) {
+                    println!("         {}", line);
+                }
+                if result.stderr.lines().count() > 10 {
+                    println!("         ... ({} more lines)", result.stderr.lines().count() - 10);
+                }
+            }
+        }
+
+        Ok(result)
     }
 }
 

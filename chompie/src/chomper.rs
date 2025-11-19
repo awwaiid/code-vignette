@@ -10,6 +10,7 @@ pub struct Chomper {
     command_runner: CommandRunner,
     baseline_result: Option<RunResult>,
     tested_states: HashSet<String>,
+    verbose: bool,
 }
 
 impl Chomper {
@@ -19,6 +20,17 @@ impl Chomper {
             command_runner,
             baseline_result: None,
             tested_states: HashSet::new(),
+            verbose: false,
+        }
+    }
+
+    pub fn with_verbose(file_manager: FileManager, command_runner: CommandRunner, verbose: bool) -> Self {
+        Chomper {
+            file_manager,
+            command_runner,
+            baseline_result: None,
+            tested_states: HashSet::new(),
+            verbose,
         }
     }
 
@@ -61,11 +73,24 @@ impl Chomper {
     pub fn try_blank_range(&mut self, range: &ChompRange) -> Result<bool> {
         // Check if we've already tested this state
         if self.is_state_tested() {
+            if self.verbose {
+                println!("    ⏭️  Skipping already-tested state");
+            }
             return Ok(false);
         }
 
         // Blank the lines in the range
         let lines_to_blank: Vec<usize> = (range.start_line..range.end_line).collect();
+
+        if self.verbose {
+            println!(
+                "    🎯 Testing range: {:?} lines {}-{} ({} lines)",
+                range.file,
+                range.start_line,
+                range.end_line,
+                range.end_line - range.start_line
+            );
+        }
 
         if let Some(file_state) = self.file_manager.get_file_mut(&range.file) {
             file_state.blank_lines(&lines_to_blank);
@@ -89,6 +114,14 @@ impl Chomper {
             false
         };
 
+        if self.verbose {
+            if matches {
+                println!("    ✅ SUCCESS: Range can be removed!");
+            } else {
+                println!("    ❌ FAILED: Output differs from baseline, restoring lines");
+            }
+        }
+
         // If it doesn't match, restore the lines
         if !matches {
             if let Some(file_state) = self.file_manager.get_file_mut(&range.file) {
@@ -105,11 +138,33 @@ impl Chomper {
         let ranges = strategy.generate_ranges(self.file_manager.files());
         let mut successful = 0;
 
-        for range in &ranges {
+        if self.verbose {
+            println!("  📊 Strategy generated {} ranges to test", ranges.len());
+        }
+
+        for (idx, range) in ranges.iter().enumerate() {
+            if self.verbose {
+                println!("  🔍 Attempt {}/{}", idx + 1, ranges.len());
+            }
+
             match self.try_blank_range(range) {
-                Ok(true) => successful += 1,
-                Ok(false) => {},
-                Err(e) => eprintln!("Error during chomp: {}", e),
+                Ok(true) => {
+                    successful += 1;
+                    if self.verbose {
+                        println!("  💚 Total successful so far: {}", successful);
+                    }
+                }
+                Ok(false) => {
+                    if self.verbose {
+                        println!("  ⚪ No change");
+                    }
+                },
+                Err(e) => {
+                    eprintln!("Error during chomp: {}", e);
+                    if self.verbose {
+                        eprintln!("  ❗ Error details: {:#}", e);
+                    }
+                }
             }
         }
 
