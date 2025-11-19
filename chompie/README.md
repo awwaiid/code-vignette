@@ -167,16 +167,37 @@ All core functionality is tested, including:
 3. **Code Understanding**: See what code is actually necessary
 4. **Test Coverage**: Identify dead code in tested modules
 
+## ⚠️ Known Limitations
+
+### Compiled Languages & Module Systems
+
+Chompie works by blanking lines, which can create syntactically invalid code in compiled languages. Additionally, languages like Rust require all declared modules to compile, even if tests only use a subset.
+
+**Example**: Testing only `card.rs` but `main.rs` declares `mod deck; mod hand; mod game;` means all those files must compile.
+
+**Result**: Minimal reduction (~1-2%) on well-structured Rust projects, not due to bugs, but language constraints.
+
+See [`LIMITATIONS.md`](./LIMITATIONS.md) for detailed analysis and proposed solutions.
+
+### Best Use Cases
+
+Chompie works best for:
+- Single-file programs
+- Python/Ruby scripts where syntax errors just fail tests
+- Finding dead code in loosely-coupled modules
+- Creating minimal reproducible examples from single files
+
 ## 🔮 Future Enhancements
 
 Potential improvements:
 
+- **Language-Aware Modes**: Rust mode that comments out unused `mod` declarations
+- **Syntax-Aware Blanking**: Only blank complete syntactic units (functions, blocks)
+- **Compilation Verification**: Ensure code compiles before considering blank successful
+- **Module-Level Reduction**: Remove entire files before trying line-level bisection
 - **Combination Testing**: Try removing multiple ranges together
 - **Smart Ordering**: Use heuristics to prioritize likely-removable code
-- **Backup/Restore**: Built-in backup before chomping
-- **Incremental**: Resume from previous chomp session
 - **Parallel Execution**: Run tests in parallel for faster chomping
-- **Delete Mode**: Actually remove lines instead of just blanking
 
 ## 📝 Technical Details
 
