@@ -1,0 +1,22 @@
+{
+  "name": "alloy-modeling-expert",
+  "version": "1.0.0",
+  "description": "An expert system for Alloy formal specification modeling and verification",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "alloy",
+    "formal-methods",
+    "verification",
+    "modeling",
+    "specification"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}

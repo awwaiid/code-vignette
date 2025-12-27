@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alloy Modeling Expert</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .header h1 {
+            color: #1e3c72;
+            text-align: center;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            text-align: center;
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 20px auto;
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .toolbar {
+            background: #f5f5f5;
+            padding: 15px;
+            border-bottom: 2px solid #ddd;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .toolbar button, .toolbar select {
+            padding: 10px 20px;
+            background: #1e3c72;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+
+        .toolbar button:hover {
+            background: #2a5298;
+        }
+
+        .toolbar select {
+            min-width: 200px;
+        }
+
+        .main-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+            height: calc(100vh - 250px);
+        }
+
+        .editor-panel {
+            border-right: 2px solid #ddd;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header {
+            background: #1e3c72;
+            color: white;
+            padding: 15px;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+
+        .CodeMirror {
+            height: 100% !important;
+            font-size: 14px;
+        }
+
+        .assistant-panel {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .tabs {
+            display: flex;
+            background: #f5f5f5;
+            border-bottom: 2px solid #ddd;
+        }
+
+        .tab {
+            padding: 15px 25px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 14px;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .tab:hover {
+            background: #e8e8e8;
+        }
+
+        .tab.active {
+            color: #1e3c72;
+            border-bottom-color: #1e3c72;
+            font-weight: bold;
+        }
+
+        .tab-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .guide-section {
+            margin-bottom: 30px;
+        }
+
+        .guide-section h3 {
+            color: #1e3c72;
+            margin-bottom: 10px;
+            border-bottom: 2px solid #1e3c72;
+            padding-bottom: 5px;
+        }
+
+        .guide-section p, .guide-section ul {
+            line-height: 1.6;
+            color: #555;
+        }
+
+        .guide-section ul {
+            margin-left: 20px;
+            margin-top: 10px;
+        }
+
+        .guide-section li {
+            margin-bottom: 8px;
+        }
+
+        .code-example {
+            background: #f5f5f5;
+            padding: 15px;
+            border-left: 4px solid #1e3c72;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            overflow-x: auto;
+        }
+
+        .example-card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid #1e3c72;
+        }
+
+        .example-card h4 {
+            color: #1e3c72;
+            margin-bottom: 8px;
+        }
+
+        .example-card p {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        .example-card button {
+            background: #1e3c72;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .example-card button:hover {
+            background: #2a5298;
+        }
+
+        .analysis-output {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            min-height: 200px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+        }
+
+        .status-bar {
+            background: #1e3c72;
+            color: white;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+        }
+
+        @media (max-width: 1200px) {
+            .main-layout {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+
+            .editor-panel {
+                border-right: none;
+                border-bottom: 2px solid #ddd;
+                min-height: 400px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔍 Alloy Modeling Expert</h1>
+        <p>Interactive Formal Specification and Verification Assistant</p>
+    </div>
+
+    <div class="container">
+        <div class="toolbar">
+            <select id="exampleSelect" onchange="loadExample()">
+                <option value="">Select an example...</option>
+                <option value="addressBook">Address Book</option>
+                <option value="fileSystem">File System</option>
+                <option value="genealogy">Genealogy</option>
+                <option value="riverCrossing">River Crossing Puzzle</option>
+                <option value="linkedList">Linked List</option>
+            </select>
+            <button onclick="analyzeModel()">📊 Analyze Model</button>
+            <button onclick="validateSyntax()">✓ Validate Syntax</button>
+            <button onclick="clearEditor()">🗑️ Clear</button>
+            <button onclick="downloadModel()">💾 Download</button>
+        </div>
+
+        <div class="main-layout">
+            <div class="editor-panel">
+                <div class="panel-header">Alloy Model Editor</div>
+                <textarea id="alloyEditor"></textarea>
+            </div>
+
+            <div class="assistant-panel">
+                <div class="tabs">
+                    <button class="tab active" onclick="switchTab('guide')">📖 Guide</button>
+                    <button class="tab" onclick="switchTab('examples')">📚 Examples</button>
+                    <button class="tab" onclick="switchTab('analysis')">🔬 Analysis</button>
+                    <button class="tab" onclick="switchTab('patterns')">🎯 Patterns</button>
+                </div>
+
+                <div id="guide" class="tab-content active">
+                    <div class="guide-section">
+                        <h3>Welcome to Alloy Modeling Expert</h3>
+                        <p>Alloy is a declarative specification language for expressing complex structural constraints and behavior in software systems. This tool helps you create, analyze, and verify Alloy models.</p>
+                    </div>
+
+                    <div class="guide-section">
+                        <h3>Quick Start</h3>
+                        <ul>
+                            <li><strong>Signatures</strong> - Define sets of atoms (basic entities)</li>
+                            <li><strong>Fields</strong> - Define relations between signatures</li>
+                            <li><strong>Facts</strong> - Constraints that always hold</li>
+                            <li><strong>Predicates</strong> - Parameterized constraints</li>
+                            <li><strong>Functions</strong> - Return values based on parameters</li>
+                            <li><strong>Assertions</strong> - Properties to check</li>
+                            <li><strong>Commands</strong> - Run or check operations</li>
+                        </ul>
+                    </div>
+
+                    <div class="guide-section">
+                        <h3>Basic Syntax</h3>
+                        <div class="code-example">sig Person {
+    friends: set Person,
+    age: one Int
+}
+
+fact NoSelfFriendship {
+    no p: Person | p in p.friends
+}
+
+pred CanVote[p: Person] {
+    p.age >= 18
+}</div>
+                    </div>
+
+                    <div class="guide-section">
+                        <h3>Common Operators</h3>
+                        <ul>
+                            <li><strong>+</strong> - Union</li>
+                            <li><strong>&</strong> - Intersection</li>
+                            <li><strong>-</strong> - Difference</li>
+                            <li><strong>~</strong> - Transpose</li>
+                            <li><strong>^</strong> - Transitive closure</li>
+                            <li><strong>*</strong> - Reflexive transitive closure</li>
+                            <li><strong>.</strong> - Join (relation composition)</li>
+                            <li><strong>[]</strong> - Box join</li>
+                        </ul>
+                    </div>
+
+                    <div class="guide-section">
+                        <h3>Quantifiers</h3>
+                        <ul>
+                            <li><strong>all</strong> - Universal quantification</li>
+                            <li><strong>some</strong> - Existential quantification</li>
+                            <li><strong>no</strong> - No elements satisfy</li>
+                            <li><strong>lone</strong> - At most one element</li>
+                            <li><strong>one</strong> - Exactly one element</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div id="examples" class="tab-content">
+                    <div class="example-card">
+                        <h4>Address Book</h4>
+                        <p>Classic example modeling an address book with names, addresses, and groups.</p>
+                        <button onclick="loadExampleByName('addressBook')">Load Example</button>
+                    </div>
+
+                    <div class="example-card">
+                        <h4>File System</h4>
+                        <p>Models a hierarchical file system with files, directories, and paths.</p>
+                        <button onclick="loadExampleByName('fileSystem')">Load Example</button>
+                    </div>
+
+                    <div class="example-card">
+                        <h4>Genealogy</h4>
+                        <p>Family tree model with parent-child relationships and gender.</p>
+                        <button onclick="loadExampleByName('genealogy')">Load Example</button>
+                    </div>
+
+                    <div class="example-card">
+                        <h4>River Crossing Puzzle</h4>
+                        <p>Classic puzzle of getting a farmer, fox, chicken, and grain across a river.</p>
+                        <button onclick="loadExampleByName('riverCrossing')">Load Example</button>
+                    </div>
+
+                    <div class="example-card">
+                        <h4>Linked List</h4>
+                        <p>Data structure model demonstrating lists with proper constraints.</p>
+                        <button onclick="loadExampleByName('linkedList')">Load Example</button>
+                    </div>
+                </div>
+
+                <div id="analysis" class="tab-content">
+                    <div class="guide-section">
+                        <h3>Model Analysis</h3>
+                        <p>Click "Analyze Model" to check your Alloy specification. The analysis will show:</p>
+                        <ul>
+                            <li>Syntax validation</li>
+                            <li>Structural analysis</li>
+                            <li>Common patterns detected</li>
+                            <li>Potential improvements</li>
+                            <li>Best practice recommendations</li>
+                        </ul>
+                    </div>
+                    <div id="analysisOutput" class="analysis-output">
+                        Analysis results will appear here...
+                    </div>
+                </div>
+
+                <div id="patterns" class="tab-content">
+                    <div class="guide-section">
+                        <h3>Common Modeling Patterns</h3>
+                    </div>
+
+                    <div class="guide-section">
+                        <h4>1. Tree Structure</h4>
+                        <div class="code-example">sig Node {
+    children: set Node
+}
+
+fact Acyclic {
+    no n: Node | n in n.^children
+}
+
+fact SingleRoot {
+    one n: Node | no n.~children
+}</div>
+                    </div>
+
+                    <div class="guide-section">
+                        <h4>2. Ordered List</h4>
+                        <div class="code-example">sig Node {
+    next: lone Node
+}
+
+fact Linear {
+    all n: Node | lone n.~next
+    no n: Node | n in n.^next
+}</div>
+                    </div>
+
+                    <div class="guide-section">
+                        <h4>3. Bidirectional Relation</h4>
+                        <div class="code-example">sig Person {
+    spouse: lone Person
+}
+
+fact Symmetry {
+    spouse = ~spouse
+}
+
+fact NoSelfMarriage {
+    no p: Person | p = p.spouse
+}</div>
+                    </div>
+
+                    <div class="guide-section">
+                        <h4>4. Disjoint Subsets</h4>
+                        <div class="code-example">abstract sig Shape {}
+sig Circle extends Shape {}
+sig Square extends Shape {}
+
+fact DisjointShapes {
+    no Circle & Square
+}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="status-bar">
+            <span id="lineCount">Lines: 0</span>
+            <span id="modelStatus">Ready</span>
+            <span>Alloy Modeling Expert v1.0</span>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/clike/clike.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
