@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recamán Sequence Visualizer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .description {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        label {
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        input[type="range"] {
+            width: 200px;
+            cursor: pointer;
+        }
+
+        input[type="number"] {
+            width: 80px;
+            padding: 8px;
+            border: 2px solid #667eea;
+            border-radius: 5px;
+            font-size: 1em;
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #764ba2;
+        }
+
+        .visualization-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 30px;
+        }
+
+        .viz-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .viz-section h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+
+        canvas {
+            display: block;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .sequence-display {
+            max-height: 150px;
+            overflow-y: auto;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            line-height: 1.8;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .stat-box {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            color: #667eea;
+            font-size: 1.8em;
+            font-weight: bold;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #764ba2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Recamán Sequence Visualizer</h1>
+        <p class="description">
+            The Recamán sequence: a(0) = 0; for n > 0, a(n) = a(n-1) - n if positive and new, otherwise a(n) = a(n-1) + n
+        </p>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="terms">Number of terms:</label>
+                <input type="range" id="terms" min="5" max="100" value="50" step="1">
+                <input type="number" id="termsNum" min="5" max="100" value="50">
+            </div>
+            <button onclick="generate()">Regenerate</button>
+        </div>
+
+        <div class="stats" id="stats"></div>
+
+        <div class="visualization-grid">
+            <div class="viz-section">
+                <h2>Arc Visualization</h2>
+                <canvas id="arcCanvas" width="1200" height="400"></canvas>
+            </div>
+
+            <div class="viz-section">
+                <h2>Line Graph</h2>
+                <canvas id="lineCanvas" width="1200" height="300"></canvas>
+            </div>
+
+            <div class="viz-section">
+                <h2>Jump Visualization</h2>
+                <canvas id="jumpCanvas" width="1200" height="200"></canvas>
+            </div>
+
+            <div class="viz-section">
+                <h2>Sequence Values</h2>
+                <div class="sequence-display" id="sequence"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Generate Recamán sequence
+        function generateRecaman(n) {
+            const sequence = [0];
+            const seen = new Set([0]);
+
+            for (let i = 1; i < n; i++) {
+                const prev = sequence[i - 1];
+                const candidate = prev - i;
+
+                if (candidate > 0 && !seen.has(candidate)) {
+                    sequence.push(candidate);
+                    seen.add(candidate);
+                } else {
+                    const next = prev + i;
+                    sequence.push(next);
+                    seen.add(next);
+                }
+            }
+
+            return sequence;
+        }
+
+        // Draw arc visualization (classic Recamán visualization)
+        function drawArcs(sequence) {
+            const canvas = document.getElementById('arcCanvas');
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+
+            ctx.clearRect(0, 0, width, height);
+
+            const maxVal = Math.max(...sequence);
+            const scale = (width - 60) / maxVal;
+            const baseY = height / 2;
+
+            // Draw axes
+            ctx.strokeStyle = '#e0e0e0';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(30, baseY);
+            ctx.lineTo(width - 30, baseY);
+            ctx.stroke();
+
+            // Draw arcs
+            for (let i = 1; i < sequence.length; i++) {
+                const from = sequence[i - 1];
+                const to = sequence[i];
+                const fromX = 30 + from * scale;
+                const toX = 30 + to * scale;
+
+                const centerX = (fromX + toX) / 2;
+                const radius = Math.abs(toX - fromX) / 2;
+
+                // Color based on direction
+                const hue = (i / sequence.length) * 360;
+                ctx.strokeStyle = `hsl(${hue}, 70%, 50%)`;
+                ctx.lineWidth = 2;
+
+                ctx.beginPath();
+                if (to > from) {
+                    // Arc above the line
+                    ctx.arc(centerX, baseY, radius, Math.PI, 0, false);
+                } else {
+                    // Arc below the line
+                    ctx.arc(centerX, baseY, radius, 0, Math.PI, false);
+                }
+                ctx.stroke();
+            }
+
+            // Draw points
+            sequence.forEach((val, idx) => {
+                const x = 30 + val * scale;
+                ctx.fillStyle = idx === 0 ? '#ff0000' : '#667eea';
+                ctx.beginPath();
+                ctx.arc(x, baseY, 3, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        // Draw line graph
+        function drawLineGraph(sequence) {
+            const canvas = document.getElementById('lineCanvas');
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+
+            ctx.clearRect(0, 0, width, height);
+
+            const maxVal = Math.max(...sequence);
+            const scaleX = (width - 80) / sequence.length;
+            const scaleY = (height - 80) / maxVal;
+
+            // Draw grid
+            ctx.strokeStyle = '#f0f0f0';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 10; i++) {
+                const y = 40 + (height - 80) * i / 10;
+                ctx.beginPath();
+                ctx.moveTo(40, y);
+                ctx.lineTo(width - 40, y);
+                ctx.stroke();
+            }
+
+            // Draw axes
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(40, height - 40);
+            ctx.lineTo(width - 40, height - 40);
+            ctx.lineTo(width - 40, 40);
+            ctx.stroke();
+
+            // Draw line
+            ctx.strokeStyle = '#667eea';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            sequence.forEach((val, idx) => {
+                const x = 40 + idx * scaleX;
+                const y = height - 40 - val * scaleY;
+                if (idx === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            });
+            ctx.stroke();
+
+            // Draw points
+            ctx.fillStyle = '#764ba2';
+            sequence.forEach((val, idx) => {
+                const x = 40 + idx * scaleX;
+                const y = height - 40 - val * scaleY;
+                ctx.beginPath();
+                ctx.arc(x, y, 3, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // Labels
+            ctx.fillStyle = '#666';
+            ctx.font = '12px Arial';
+            ctx.fillText('Index', width / 2, height - 10);
+            ctx.save();
+            ctx.translate(15, height / 2);
+            ctx.rotate(-Math.PI / 2);
+            ctx.fillText('Value', 0, 0);
+            ctx.restore();
+        }
+
+        // Draw jump visualization
+        function drawJumps(sequence) {
+            const canvas = document.getElementById('jumpCanvas');
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+
+            ctx.clearRect(0, 0, width, height);
+
+            const maxJump = Math.max(...sequence.slice(1).map((val, idx) => Math.abs(val - sequence[idx])));
+            const scaleX = (width - 80) / sequence.length;
+            const scaleY = (height - 80) / maxJump;
+
+            // Draw axes
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(40, height - 40);
+            ctx.lineTo(width - 40, height - 40);
+            ctx.stroke();
+
+            // Draw bars
+            for (let i = 1; i < sequence.length; i++) {
+                const jump = Math.abs(sequence[i] - sequence[i - 1]);
+                const x = 40 + i * scaleX;
+                const barHeight = jump * scaleY;
+
+                const hue = (i / sequence.length) * 360;
+                ctx.fillStyle = `hsl(${hue}, 70%, 50%)`;
+                ctx.fillRect(x - scaleX/3, height - 40 - barHeight, scaleX * 2/3, barHeight);
+            }
+
+            // Labels
+            ctx.fillStyle = '#666';
+            ctx.font = '12px Arial';
+            ctx.fillText('Jump Sizes (Absolute Difference)', width / 2 - 80, height - 10);
+        }
+
+        // Display sequence as text
+        function displaySequence(sequence) {
+            const div = document.getElementById('sequence');
+            div.innerHTML = sequence.map((val, idx) =>
+                `<span style="color: #667eea;">a(${idx})</span> = ${val}`
+            ).join(', ');
+        }
+
+        // Display statistics
+        function displayStats(sequence) {
+            const maxVal = Math.max(...sequence);
+            const minVal = Math.min(...sequence);
+            const avgJump = sequence.slice(1).reduce((sum, val, idx) =>
+                sum + Math.abs(val - sequence[idx]), 0) / (sequence.length - 1);
+            const uniqueVals = new Set(sequence).size;
+
+            const statsHTML = `
+                <div class="stat-box">
+                    <div class="stat-label">Terms</div>
+                    <div class="stat-value">${sequence.length}</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Maximum Value</div>
+                    <div class="stat-value">${maxVal}</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Minimum Value</div>
+                    <div class="stat-value">${minVal}</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Average Jump</div>
+                    <div class="stat-value">${avgJump.toFixed(1)}</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Unique Values</div>
+                    <div class="stat-value">${uniqueVals}</div>
+                </div>
+            `;
+            document.getElementById('stats').innerHTML = statsHTML;
+        }
+
+        // Main generation function
+        function generate() {
+            const n = parseInt(document.getElementById('termsNum').value);
+            const sequence = generateRecaman(n);
+
+            drawArcs(sequence);
+            drawLineGraph(sequence);
+            drawJumps(sequence);
+            displaySequence(sequence);
+            displayStats(sequence);
+        }
+
+        // Sync slider and number input
+        document.getElementById('terms').addEventListener('input', (e) => {
+            document.getElementById('termsNum').value = e.target.value;
+        });
+
+        document.getElementById('termsNum').addEventListener('input', (e) => {
+            document.getElementById('terms').value = e.target.value;
+        });
+
+        // Initial generation
+        generate();
+    </script>
+</body>
+</html>
