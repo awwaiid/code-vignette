@@ -30,43 +30,70 @@ Rows without a live intent are shown dimmed and non-tappable.
 
 ## Setup
 
-### 1. Bootstrap the React Native project
+### 1. Create an Expo account and project
 
 ```bash
-npx react-native@0.76 init KeepingItReal --template react-native-template-typescript
-cd KeepingItReal
+npm install -g eas-cli
+eas login                        # create account at expo.dev if needed
+eas init --id                    # creates the project on Expo's servers, fills in app.json
 ```
 
-### 2. Copy custom source files
+Copy the generated `projectId` into `app.json` → `expo.extra.eas.projectId`.
 
-Copy the contents of `android-src/java/com/keepingitreal/` into:
-```
-android/app/src/main/java/com/keepingitreal/
-```
-
-Copy the contents of `src/` into the project's `src/` directory.
-
-Replace `App.tsx` and `index.js` at the project root.
-
-### 3. Patch AndroidManifest.xml
-
-See `android-src/AndroidManifest.patch.xml` — add the `<service>` entry inside `<application>`.
-
-### 4. Patch MainApplication.kt
-
-See `android-src/MainApplication.patch.kt` — import `NotificationPackage` and add it to `getPackages()`.
-
-### 5. Build and run
+### 2. Bootstrap the native Android project
 
 ```bash
 npm install
-npx react-native run-android
+npx expo prebuild --platform android --no-install
 ```
 
-### 6. Grant permission
+This generates the `android/` directory from `app.json`. Run it once — after that, the
+`android/` directory is yours to modify directly.
 
-On first launch, tap the orange banner → this opens **Settings > Special App Access > Notification Access**.
-Enable **Keeping It Real**. Return to the app — notifications will now stream in.
+### 3. Add the custom native module
+
+Copy `android-src/java/com/keepingitreal/` into `android/app/src/main/java/com/keepingitreal/`.
+
+Then apply the two small patches:
+- `android-src/AndroidManifest.patch.xml` — add the `<service>` entry inside `<application>`
+- `android-src/MainApplication.patch.kt` — register `NotificationPackage`
+
+### 4. Build a development APK (one-time, runs on Expo's servers)
+
+```bash
+eas build --platform android --profile development
+```
+
+This takes ~5-10 minutes. When done, EAS shows a QR code — scan it to install the APK.
+
+### 5. Start the local dev server
+
+```bash
+npx expo start
+```
+
+Scan the Metro QR code with the installed development build. From here on, JS changes
+reload instantly without rebuilding the APK.
+
+### 6. Grant notification permission
+
+On first launch, tap the orange banner → opens **Settings > Special App Access > Notification Access**.
+Enable **Keeping It Real**. Return to the app — notifications stream in in realtime.
+
+---
+
+## CI/CD — GitHub Actions
+
+Push to `main` (or trigger manually) → `.github/workflows/eas-build.yml` kicks off an EAS build.
+
+**Required secret:** Add `EXPO_TOKEN` to the repo's GitHub Secrets
+(get it at expo.dev → Account Settings → Access Tokens).
+
+The workflow posts a build URL to the Actions summary. The EAS build page shows:
+- A QR code to scan for direct APK install
+- A download link for sideloading
+
+**Manual trigger:** Go to Actions → EAS Build → Run workflow → pick `development` or `preview`.
 
 ## How deep-link passthrough works
 
