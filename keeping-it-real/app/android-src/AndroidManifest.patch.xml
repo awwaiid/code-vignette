@@ -1,0 +1,32 @@
+<!--
+  AndroidManifest.xml additions for Keeping It Real.
+
+  After running `npx react-native init KeepingItReal`, open:
+    android/app/src/main/AndroidManifest.xml
+
+  Make the two additions marked ADD below.
+-->
+
+<manifest ...>
+
+    <!-- ADD: no extra <uses-permission> is needed; the listener permission
+         is declared on the service itself and granted via system settings,
+         not as a runtime permission request. -->
+
+    <application ...>
+
+        <!-- ... existing MainActivity entry ... -->
+
+        <!-- ADD: Notification Listener Service -->
+        <service
+            android:name=".notification.KIRNotificationListenerService"
+            android:label="Keeping It Real"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
+    </application>
+</manifest>
