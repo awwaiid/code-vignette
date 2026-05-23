@@ -1,0 +1,166 @@
+# watchdex01
+
+A Wear OS app that turns a Google watch into a push-to-talk capture device,
+mimicking the pebble01 / index01 ring flow: **hold the side button → record →
+release → ship audio to the paired phone**.
+
+## What it does
+
+- Foreground activity intercepts the watch's physical stem button
+  (`KEYCODE_STEM_PRIMARY`, plus `STEM_1..3` for watches with extras).
+- While the button is held, `MediaRecorder` captures **mono AAC, 16 kHz,
+  64 kbps** into the app's cache directory (`rec-<timestamp>.m4a`).
+- On release, the file is published to the paired phone over the Wear OS
+  **Data Layer** as an `Asset` at the path `/watchdex01/audio`.
+- The screen is held on while the app is foregrounded so the OS doesn't kill
+  recording mid-hold.
+
+## Receiving the audio on the phone
+
+The watch hands the audio to the **paired phone**, not directly to the Pebble
+app — the Pebble app (or a tiny forwarder APK) needs a `WearableListenerService`
+listening on the same path. Drop something like this into the Pebble Android
+app (or a separate sidecar):
+
+```kotlin
+class WatchdexListener : WearableListenerService() {
+    override fun onDataChanged(events: DataEventBuffer) {
+        for (event in events) {
+            if (event.type != DataEvent.TYPE_CHANGED) continue
+            if (event.dataItem.uri.path != "/watchdex01/audio") continue
+            val map = DataMapItem.fromDataItem(event.dataItem).dataMap
+            val asset = map.getAsset("audio") ?: continue
+            val name  = map.getString("filename") ?: "rec.m4a"
+            val ts    = map.getLong("recordedAt")
+            val fd = Tasks.await(
+                Wearable.getDataClient(this).getFdForAsset(asset)
+            )
+            fd.inputStream.use { input ->
+                File(filesDir, name).outputStream().use { input.copyTo(it) }
+            }
+            // Hand the file to whatever the Pebble app does with index01 audio.
+        }
+    }
+}
+```
+
+…and register it in the Pebble app manifest:
+
+```xml
+<service
+    android:name=".WatchdexListener"
+    android:exported="true">
+    <intent-filter>
+        <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
+        <data android:scheme="wear" android:host="*" android:pathPrefix="/watchdex01" />
+    </intent-filter>
+</service>
+```
+
+If you'd rather not touch the Pebble app, the same service can live in a
+standalone APK that uses `Intent.ACTION_SEND` (or whatever ingestion API the
+Pebble app exposes) to forward the recording.
+
+## Build locally
+
+Requires JDK 17 and the Android SDK (`platforms;android-34`, `build-tools;34.0.0`).
+
+```sh
+cd watchdex01
+gradle wrapper            # one-time: generates ./gradlew so you don't need system gradle
+./gradlew assembleDebug
+```
+
+Output APK: `app/build/outputs/apk/debug/app-debug.apk`.
+
+## CI build (no local toolchain needed)
+
+The workflow definition lives at [`watchdex01/ci/github-actions.yml`](ci/github-actions.yml).
+GitHub only runs workflows under `.github/workflows/`, so copy it into place
+**once** (this branch was pushed by an automation that's not allowed to
+touch `.github/workflows/` directly):
+
+```sh
+mkdir -p .github/workflows
+cp watchdex01/ci/github-actions.yml .github/workflows/watchdex01.yml
+git add .github/workflows/watchdex01.yml
+git commit -m "ci: add watchdex01 build workflow"
+git push
+```
+
+After that, every push touching `watchdex01/` builds a debug APK and uploads
+it as an artifact named `watchdex01-debug-apk`. Download it from the workflow
+run page and skip straight to sideloading.
+
+## Sideloading onto your watch
+
+Wear OS doesn't have a one-tap installer for unsigned APKs — you need ADB. Pick
+the path that matches your watch:
+
+### One-time: enable developer mode on the watch
+
+1. Watch → **Settings → System → About → Versions** → tap **Build number** 7×.
+2. Back up one menu → **Developer options**.
+3. Turn on **ADB debugging**. If the watch has no USB port (most don't), also
+   turn on **Wireless debugging** (Pixel Watch / Galaxy Watch) **or**
+   **Debug over Wi-Fi** (older Wear OS).
+
+### Connect ADB
+
+**Wireless debugging (Pixel Watch, modern Galaxy Watch)**
+
+1. On the watch, tap **Wireless debugging → Pair new device**. Note the IP +
+   pairing port + 6-digit code.
+2. On your computer:
+
+   ```sh
+   adb pair <watch-ip>:<pair-port>      # paste the 6-digit code when prompted
+   adb connect <watch-ip>:<connect-port>
+   ```
+
+   The connect port is the larger one shown on the Wireless debugging screen
+   (not the pairing port).
+
+**Debug over Wi-Fi (legacy)**
+
+1. Pair the watch with the phone's Wear OS app on the same Wi-Fi.
+2. Watch shows an IP. From your computer:
+
+   ```sh
+   adb connect <watch-ip>:5555
+   ```
+
+### Install
+
+```sh
+adb -s <watch-ip>:<port> install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+The watch will prompt to **Allow USB debugging** for your host's RSA
+fingerprint — accept it. Re-run the install once you've accepted.
+
+### Run it
+
+1. Open the watch app drawer → **watchdex01**.
+2. First launch: grant the **microphone** permission (and notifications on
+   Android 13+).
+3. Hold the side button. Status flips to **Recording…** until you release.
+4. Status then shows either **Sent N KB** (phone reached) or
+   **Saved (no phone) N KB** (no Data Layer node available — recording is
+   still on the watch in app cache).
+
+## Known caveats
+
+- **Short presses of the side button may exit the app on some watches** — the
+  OS routes a tap-up of `KEYCODE_STEM_PRIMARY` to the watchface. Hold the
+  button instead of tapping; key-down still fires and recording starts. If a
+  specific watch swallows the event entirely, the workaround is to use
+  `STEM_1`/`STEM_2` on watches that have them.
+- **No phone-side bridge is shipped here.** Until the Pebble app (or a
+  forwarder) listens on `/watchdex01/audio`, the watch sync will report
+  *Saved (no phone)* or *Sent N KB* (delivered to the Wear Data Layer) but
+  nothing on the phone will pick it up.
+- Recording happens from the activity, not a foreground service. If the
+  screen sleeps mid-hold the recorder is stopped; this is fine for
+  push-to-talk-style use because the screen stays on while the activity is
+  visible.
