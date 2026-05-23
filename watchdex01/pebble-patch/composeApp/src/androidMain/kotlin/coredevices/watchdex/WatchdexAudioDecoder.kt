@@ -1,36 +1,37 @@
-package com.coredevices.watchdex
+package coredevices.watchdex
 
 import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import co.touchlab.kermit.Logger
 import java.io.File
-import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 /**
- * Decodes the watchdex01 watch's AAC-in-MP4 recording into the same shape the
- * Pebble ring pipeline expects: 16-bit mono PCM. Returns the samples plus the
- * source sample rate so RingSync's resampling path can run unchanged if the
- * watch ever sends something other than 16 kHz.
+ * Decodes the watchdex01 watch's AAC-in-MP4 recording into the same shape
+ * RingSync passes around: 16-bit mono PCM as a [ShortArray] plus the sample
+ * rate it was decoded at.
  *
  * The watch records AAC LC at 16 kHz mono / 64 kbps, so on the happy path
- * `sampleRate == 16000` and `samples` is already pipeline-ready.
+ * `sampleRate == 16000` and the resulting samples are already pipeline-ready
+ * — no resampling needed before writing to `RecordingStorage`.
  */
-object WatchdexAudioDecoder {
+internal object WatchdexAudioDecoder {
+
+    private val logger = Logger.withTag("WatchdexAudioDecoder")
 
     data class Decoded(val samples: ShortArray, val sampleRate: Int)
 
-    fun decode(aacFile: File): Decoded? {
+    fun decodeFile(aacFile: File): Decoded? {
         val extractor = MediaExtractor()
         extractor.setDataSource(aacFile.absolutePath)
-        val trackIndex = (0 until extractor.trackCount)
-            .firstOrNull { extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true }
-            ?: run {
-                extractor.release()
-                Logger.e { "watchdex: no audio track in ${aacFile.name}" }
-                return null
-            }
+        val trackIndex = (0 until extractor.trackCount).firstOrNull {
+            extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true
+        } ?: run {
+            extractor.release()
+            logger.e { "no audio track in ${aacFile.name}" }
+            return null
+        }
         extractor.selectTrack(trackIndex)
         val inFormat = extractor.getTrackFormat(trackIndex)
         val mime = inFormat.getString(MediaFormat.KEY_MIME)!!
@@ -40,7 +41,7 @@ object WatchdexAudioDecoder {
         codec.configure(inFormat, null, null, 0)
         codec.start()
 
-        val out = ArrayList<Short>(sampleRate * 4) // assume up to ~4 s; ArrayList grows fine
+        val out = ArrayList<Short>(sampleRate * 4)
         val info = MediaCodec.BufferInfo()
         var sawInputEos = false
         var sawOutputEos = false
@@ -69,9 +70,7 @@ object WatchdexAudioDecoder {
                             val outBuf = codec.getOutputBuffer(outIdx)!!
                             outBuf.position(info.offset).limit(info.offset + info.size)
                             val shorts = ShortArray(info.size / 2)
-                            outBuf.order(ByteOrder.LITTLE_ENDIAN)
-                                .asShortBuffer()
-                                .get(shorts)
+                            outBuf.order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts)
                             shorts.forEach { out.add(it) }
                         }
                         codec.releaseOutputBuffer(outIdx, false)
@@ -79,14 +78,12 @@ object WatchdexAudioDecoder {
                             sawOutputEos = true
                         }
                     }
-                    outIdx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
-                        // ignored: we read sample rate from the input track
-                    }
                     outIdx == MediaCodec.INFO_TRY_AGAIN_LATER -> { /* spin */ }
+                    outIdx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> { /* ignored */ }
                 }
             }
         } catch (e: Exception) {
-            Logger.e(e) { "watchdex: decode failed for ${aacFile.name}" }
+            logger.e(e) { "decode failed for ${aacFile.name}" }
             return null
         } finally {
             runCatching { codec.stop() }
@@ -95,28 +92,19 @@ object WatchdexAudioDecoder {
         }
 
         if (out.isEmpty()) {
-            Logger.w { "watchdex: decoded 0 samples from ${aacFile.name}" }
+            logger.w { "decoded 0 samples from ${aacFile.name}" }
             return null
         }
-
-        val samples = ShortArray(out.size) { out[it] }
-        return Decoded(samples = samples, sampleRate = sampleRate)
+        return Decoded(samples = ShortArray(out.size) { out[it] }, sampleRate = sampleRate)
     }
 
     fun decodeBytes(aacBytes: ByteArray, cacheDir: File): Decoded? {
         val tmp = File(cacheDir, "watchdex-in-${System.nanoTime()}.m4a")
         return try {
             tmp.outputStream().use { it.write(aacBytes) }
-            decode(tmp)
+            decodeFile(tmp)
         } finally {
             tmp.delete()
         }
-    }
-
-    @Suppress("unused")
-    private fun ByteBuffer.toByteArrayCopy(): ByteArray {
-        val arr = ByteArray(remaining())
-        get(arr)
-        return arr
     }
 }

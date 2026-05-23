@@ -11,55 +11,28 @@ release → ship audio to the paired phone**.
 - While the button is held, `MediaRecorder` captures **mono AAC, 16 kHz,
   64 kbps** into the app's cache directory (`rec-<timestamp>.m4a`).
 - On release, the file is published to the paired phone over the Wear OS
-  **Data Layer** as an `Asset` at the path `/watchdex01/audio`.
+  **Data Layer** as an `Asset` at a unique path `/watchdex01/audio/<uuid>`
+  (so back-to-back recordings don't overwrite each other in the cache).
 - The screen is held on while the app is foregrounded so the OS doesn't kill
   recording mid-hold.
 
 ## Receiving the audio on the phone
 
-The watch hands the audio to the **paired phone**, not directly to the Pebble
-app — the Pebble app (or a tiny forwarder APK) needs a `WearableListenerService`
-listening on the same path. Drop something like this into the Pebble Android
-app (or a separate sidecar):
+The watch hands audio to the **paired phone** over the Wear Data Layer; the
+Pebble app needs a small ingest patch to pick it up. That patch lives in
+[`pebble-patch/`](pebble-patch/) — a `WearableListenerService` + AAC→PCM
+decoder + cosmetic device-list entry that injects watch audio into the same
+`RingTransferRepository` / `RecordingStorage` / `recordingProcessingQueue`
+the real Index 01 ring uses. Recordings appear in the Pebble app's feed
+identically to ring captures.
 
-```kotlin
-class WatchdexListener : WearableListenerService() {
-    override fun onDataChanged(events: DataEventBuffer) {
-        for (event in events) {
-            if (event.type != DataEvent.TYPE_CHANGED) continue
-            if (event.dataItem.uri.path != "/watchdex01/audio") continue
-            val map = DataMapItem.fromDataItem(event.dataItem).dataMap
-            val asset = map.getAsset("audio") ?: continue
-            val name  = map.getString("filename") ?: "rec.m4a"
-            val ts    = map.getLong("recordedAt")
-            val fd = Tasks.await(
-                Wearable.getDataClient(this).getFdForAsset(asset)
-            )
-            fd.inputStream.use { input ->
-                File(filesDir, name).outputStream().use { input.copyTo(it) }
-            }
-            // Hand the file to whatever the Pebble app does with index01 audio.
-        }
-    }
-}
-```
+Apply instructions and trade-offs in [`pebble-patch/README.md`](pebble-patch/README.md).
 
-…and register it in the Pebble app manifest:
-
-```xml
-<service
-    android:name=".WatchdexListener"
-    android:exported="true">
-    <intent-filter>
-        <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
-        <data android:scheme="wear" android:host="*" android:pathPrefix="/watchdex01" />
-    </intent-filter>
-</service>
-```
-
-If you'd rather not touch the Pebble app, the same service can live in a
-standalone APK that uses `Intent.ACTION_SEND` (or whatever ingestion API the
-Pebble app exposes) to forward the recording.
+> **Why not full BLE ring impersonation?** The Index 01 ring's BLE protocol
+> lives in the closed-source `io.github.coredevices.haversine:haversine` jar.
+> Without that source, the watch can't speak the ring's wire protocol to an
+> unmodified Pebble app. Injecting at the recording-pipeline layer in your
+> Pebble fork is the path that actually works.
 
 ## Build locally
 
