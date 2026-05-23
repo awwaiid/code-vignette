@@ -9,16 +9,22 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileInputStream
+import java.util.UUID
 
 /**
  * Ships a recorded file to the paired phone over the Wear Data Layer.
  *
- * Path: /watchdex01/audio
- * Payload: Asset "audio" (raw bytes), String "filename", Long "recordedAt".
+ * Each recording is sent at a unique path /watchdex01/audio/<transferId> so
+ * rapid successive recordings don't overwrite one another in the Data Layer
+ * cache. The phone-side listener is expected to delete each DataItem after
+ * it has ingested it.
  *
- * A WearableListenerService on the phone (in the Pebble app, or a small
- * forwarder APK) is responsible for picking the asset up and handing it to
- * whatever pipeline the Pebble app uses.
+ * Payload:
+ *   Asset  "audio"      – AAC-in-MP4 bytes
+ *   String "filename"   – original filename from the watch
+ *   String "transferId" – UUID, also embedded in the path
+ *   String "mimeType"   – "audio/mp4" (AAC LC, mono, 16 kHz, 64 kbps)
+ *   Long   "recordedAt" – ms since epoch when recording finished
  */
 class PhoneSync(context: Context) {
 
@@ -32,9 +38,12 @@ class PhoneSync(context: Context) {
 
             val bytes = FileInputStream(file).use { it.readBytes() }
             val asset = Asset.createFromBytes(bytes)
-            val req = PutDataMapRequest.create(AUDIO_PATH).apply {
+            val transferId = UUID.randomUUID().toString()
+            val req = PutDataMapRequest.create("$AUDIO_PATH_PREFIX/$transferId").apply {
                 dataMap.putAsset("audio", asset)
                 dataMap.putString("filename", file.name)
+                dataMap.putString("transferId", transferId)
+                dataMap.putString("mimeType", "audio/mp4")
                 dataMap.putLong("recordedAt", System.currentTimeMillis())
             }.asPutDataRequest().setUrgent()
             Tasks.await(dataClient.putDataItem(req))
@@ -45,6 +54,6 @@ class PhoneSync(context: Context) {
     }
 
     companion object {
-        const val AUDIO_PATH = "/watchdex01/audio"
+        const val AUDIO_PATH_PREFIX = "/watchdex01/audio"
     }
 }
