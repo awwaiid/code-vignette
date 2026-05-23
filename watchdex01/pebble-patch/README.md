@@ -81,17 +81,20 @@ adb install -r composeApp/build/outputs/apk/debug/composeApp-debug.apk
    feed and start transcribing, and "watchdex01" should appear under
    Devices.
 
-## Things that *probably* need adjustment in your fork
+## Verified against the real fork
 
-These can't be confirmed from the open-source slice:
+The patch was compiled and packaged against
+[`awwaiid/pebble-mobileapp`](https://github.com/awwaiid/pebble-mobileapp)
+at branch `watchdex01-ingest` (parent: `record-actions`) — `./gradlew
+:composeApp:assembleDebug` produces `composeApp-unknown-9999-debug.apk` with
+zero diff to existing call sites. `queueAudioProcessing(transferId, null)`
+type-checks, the Koin injections resolve, and the cosmetic
+`IndexDeviceManager.update(...)` call binds against the existing public
+method.
 
-- **`recordingProcessingQueue.queueAudioProcessing(transferId, buttonSequence)`** —
-  the type of `buttonSequence` isn't visible (it comes from haversine's
-  `TransferStatus.TransferTypeDetermined`). The patch passes `null`, mirroring
-  what `RingSync` does when `collectionStartIndex != null && !final`. If your
-  fork's signature insists on non-null, supply a sentinel value or extend the
-  queue API to accept the watch as a known sourceless variant.
-- **Resampling** — the watch records at exactly 16 kHz mono, which matches
+## Known caveats (not blockers, just things to be aware of)
+
+- **Resampling** — the watch records at exactly 16 kHz mono, matching
   `TARGET_SAMPLE_RATE`. If you ever change the watch's `setAudioSamplingRate`
   away from 16 kHz, plumb the watch's decoded `sampleRate` through
   `coredevices.resampler.Resampler` before writing to `openRecordingSink`,
@@ -101,6 +104,10 @@ These can't be confirmed from the open-source slice:
   ingested in a given app launch and is dropped on process death. If you
   want it to survive restarts, store a `wasEverSeen` flag in
   `BasePreferences` and re-register on `IndexDeviceManager.init()`.
+- **`buttonSequence`** — passed as `null`, which is what `RingSync` does
+  when `collectionStartIndex != null && !final`. The downstream pipeline
+  accepts that fine; if you ever need ordered button sequences for watch
+  recordings you can synthesize one and pass it through.
 
 ## Files
 

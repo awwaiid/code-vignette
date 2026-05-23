@@ -36,34 +36,30 @@ Apply instructions and trade-offs in [`pebble-patch/README.md`](pebble-patch/REA
 
 ## Build locally
 
-Requires JDK 17 and the Android SDK (`platforms;android-34`, `build-tools;34.0.0`).
+Requires JDK 17 and the Android SDK (`platforms;android-35`,
+`build-tools;35.0.0`; AGP also auto-installs `build-tools;34.0.0` on first
+build for desugaring). Wrapper is checked in:
 
 ```sh
 cd watchdex01
-gradle wrapper            # one-time: generates ./gradlew so you don't need system gradle
 ./gradlew assembleDebug
 ```
 
-Output APK: `app/build/outputs/apk/debug/app-debug.apk`.
+Output APK: `app/build/outputs/apk/debug/app-debug.apk`. About 7 MB.
 
-## CI build (no local toolchain needed)
+If `sdk.dir` isn't already configured, drop a `local.properties` next to
+`gradlew` (it's `.gitignore`d) pointing at your SDK:
 
-The workflow definition lives at [`watchdex01/ci/github-actions.yml`](ci/github-actions.yml).
-GitHub only runs workflows under `.github/workflows/`, so copy it into place
-**once** (this branch was pushed by an automation that's not allowed to
-touch `.github/workflows/` directly):
-
-```sh
-mkdir -p .github/workflows
-cp watchdex01/ci/github-actions.yml .github/workflows/watchdex01.yml
-git add .github/workflows/watchdex01.yml
-git commit -m "ci: add watchdex01 build workflow"
-git push
+```
+sdk.dir=/path/to/Android/Sdk
 ```
 
-After that, every push touching `watchdex01/` builds a debug APK and uploads
-it as an artifact named `watchdex01-debug-apk`. Download it from the workflow
-run page and skip straight to sideloading.
+## CI build
+
+GitHub Actions: [`.github/workflows/watchdex01.yml`](../.github/workflows/watchdex01.yml).
+Every push touching `watchdex01/` builds a debug APK and uploads it as an
+artifact named `watchdex01-debug-apk`. Download it from the workflow run
+page and skip straight to sideloading.
 
 ## Sideloading onto your watch
 
@@ -129,10 +125,11 @@ fingerprint — accept it. Re-run the install once you've accepted.
   button instead of tapping; key-down still fires and recording starts. If a
   specific watch swallows the event entirely, the workaround is to use
   `STEM_1`/`STEM_2` on watches that have them.
-- **No phone-side bridge is shipped here.** Until the Pebble app (or a
-  forwarder) listens on `/watchdex01/audio`, the watch sync will report
-  *Saved (no phone)* or *Sent N KB* (delivered to the Wear Data Layer) but
-  nothing on the phone will pick it up.
+- **The phone-side bridge lives in [`pebble-patch/`](pebble-patch/)** —
+  apply it to your fork of [`awwaiid/pebble-mobileapp`](https://github.com/awwaiid/pebble-mobileapp)
+  to actually receive the audio. Without the patch (or a forwarder), the
+  watch will say *Sent N KB* (delivered to the Wear Data Layer) but
+  nothing on the phone consumes it.
 - Recording happens from the activity, not a foreground service. If the
   screen sleeps mid-hold the recorder is stopped; this is fine for
   push-to-talk-style use because the screen stays on while the activity is
