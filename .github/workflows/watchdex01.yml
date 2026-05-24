@@ -1,0 +1,44 @@
+name: watchdex01
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "watchdex01/**"
+      - ".github/workflows/watchdex01.yml"
+  pull_request:
+    paths:
+      - "watchdex01/**"
+      - ".github/workflows/watchdex01.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: watchdex01
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: "platform-tools platforms;android-35 build-tools;35.0.0 build-tools;34.0.0"
+
+      - name: Build debug APK
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: watchdex01-debug-apk
+          path: watchdex01/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error

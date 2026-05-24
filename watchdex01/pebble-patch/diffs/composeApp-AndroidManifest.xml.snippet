@@ -1,0 +1,21 @@
+<!--
+  Add inside <application>...</application> in
+  composeApp/src/androidMain/AndroidManifest.xml.
+
+  Place it next to the other <service> entries (BugReportService,
+  PebbleService, ModelDownloadService) — anywhere inside <application> works.
+  No new <uses-permission> is required: the Wear Data Layer is delivered via
+  the system over the already-bonded phone↔watch Bluetooth link.
+-->
+
+<service
+    android:name="coredevices.watchdex.WatchdexListenerService"
+    android:exported="true">
+    <intent-filter>
+        <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
+        <data
+            android:scheme="wear"
+            android:host="*"
+            android:pathPrefix="/watchdex01" />
+    </intent-filter>
+</service>
