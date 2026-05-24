@@ -6,15 +6,29 @@ release → ship audio to the paired phone**.
 
 ## What it does
 
-- Foreground activity intercepts the watch's physical stem button
-  (`KEYCODE_STEM_PRIMARY`, plus `STEM_1..3` for watches with extras).
-- While the button is held, `MediaRecorder` captures **mono AAC, 16 kHz,
-  64 kbps** into the app's cache directory (`rec-<timestamp>.m4a`).
+- Foreground activity captures audio while the user holds **either** the
+  screen (tap-and-hold anywhere on the watchface) **or** a physical stem
+  button. Tap-and-hold is the recommended trigger: Wear OS reserves the
+  Pixel Watch crown's long-press for Gemini/Assistant at the OS level and
+  apps can't override it, so the crown is mostly useless. The smaller
+  pill-style side button (`KEYCODE_STEM_1` on Pixel Watch) does get
+  delivered to the app and is honored too.
+- `MediaRecorder` captures **mono AAC, 16 kHz, 64 kbps** into the app's
+  cache directory (`rec-<timestamp>.m4a`) for as long as the trigger is
+  held.
 - On release, the file is published to the paired phone over the Wear OS
   **Data Layer** as an `Asset` at a unique path `/watchdex01/audio/<uuid>`
   (so back-to-back recordings don't overwrite each other in the cache).
 - The screen is held on while the app is foregrounded so the OS doesn't kill
   recording mid-hold.
+
+> **applicationId matters.** The Wear OS Data Layer routes events by
+> *package name + signing cert*. This APK ships with `applicationId =
+> "coredevices.coreapp"` so it lines up with the Pebble Android app; if you
+> change one without changing the other, the phone-side listener will
+> never fire even though `connectedNodes` is non-empty and the watch
+> reports "Sent N KB". (The Kotlin namespace stays `com.awwaiid.watchdex01`
+> — only the installed package id was renamed.)
 
 ## Receiving the audio on the phone
 

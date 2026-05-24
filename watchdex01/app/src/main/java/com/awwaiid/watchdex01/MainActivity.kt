@@ -4,7 +4,10 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.KeyEvent
+import android.view.MotionEvent
+import android.view.View
 import android.view.WindowManager
 import android.widget.TextView
 import androidx.activity.ComponentActivity
@@ -27,6 +30,20 @@ class MainActivity : ComponentActivity() {
         recorder = AudioRecorder(this)
         phoneSync = PhoneSync(this)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+        // Touch-and-hold anywhere on the screen is the guaranteed trigger.
+        // Physical buttons are still honored via onKeyDown/onKeyUp below when
+        // the OS doesn't intercept them (the Pixel Watch's crown long-press is
+        // reserved for Gemini and can't be overridden — use STEM_1 or the
+        // screen instead).
+        findViewById<View>(R.id.touch_target).setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> { startRecording(); true }
+                MotionEvent.ACTION_UP,
+                MotionEvent.ACTION_CANCEL -> { stopRecording(); true }
+                else -> false
+            }
+        }
 
         requestPermissionsIfNeeded()
         setStatus(getString(R.string.initial_status))
@@ -51,6 +68,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        Log.d(TAG, "onKeyDown keyCode=$keyCode (${KeyEvent.keyCodeToString(keyCode)}) repeat=${event.repeatCount}")
         if (isStemKey(keyCode) && event.repeatCount == 0) {
             startRecording()
             return true
@@ -59,6 +77,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+        Log.d(TAG, "onKeyUp keyCode=$keyCode (${KeyEvent.keyCodeToString(keyCode)})")
         if (isStemKey(keyCode)) {
             stopRecording()
             return true
@@ -122,5 +141,6 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         private const val REQ_PERMS = 1
+        private const val TAG = "watchdex01"
     }
 }

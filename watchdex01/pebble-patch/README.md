@@ -16,6 +16,13 @@ The watch also gets a cosmetic entry in the Devices list (a
 **not** participate in BLE pairing or claim the `prefs.ringPaired` slot, so
 your real ring continues to work alongside it.
 
+> **Package name must match.** The Wear OS Data Layer routes events by
+> *package name + signing cert*. The watchdex01 watch APK is configured
+> with `applicationId = "coredevices.coreapp"` for exactly this reason —
+> it has to match this app's `applicationId` for the listener to receive
+> `onDataChanged`. Verified end-to-end with both APKs debug-signed on the
+> same machine (so the `~/.android/debug.keystore` cert matches).
+
 ## Why this isn't full ring impersonation
 
 The Index 01 ring's BLE protocol — service characteristics, advertisement
